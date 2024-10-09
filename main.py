@@ -5,15 +5,14 @@ import subprocess
 
 def progress_hooks(d):
     if d['status'] == 'downloading':
-        # Print progress
         print(f"Downloaded {d['_percent_str']} of {d['_total_bytes_str']}. Speed: {d['_speed_str']}. ETA: {d['_eta_str']}")
     elif d['status'] == 'finished':
         print('Download completed!')
 
 
-def download_video(url):
+def download_video(url, resolution):
     ydl_opts = {
-        'format': 'best',  
+        'format': f'best[height<={resolution}]',  
         'outtmpl': '%(title)s.%(ext)s',  
         'noplaylist': True, 
         'progress_hooks': [progress_hooks],
@@ -53,10 +52,10 @@ def download_video_with_section(url, start_time, end_time):
 def download_audio(url):
     ydl_opts = {
     'format': 'm4a/bestaudio/best',
-    'postprocessors': [{  # Extract audio using ffmpeg
+    'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'm4a',
-    }]
+        }]
     }
 
     try:
@@ -67,3 +66,27 @@ def download_audio(url):
     except Exception as e:
         print(f"Error downloading video: {e}")
 
+
+
+def get_video_info(url):
+    with yt_dlp.YoutubeDL({}) as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+        formats = info_dict.get('formats', [])
+        video_formats = []
+        for f in formats:
+            if f.get('height') and int(f.get('height')) > 300:
+                print(f"ext - {f['ext']} - Resolution: {f.get('height')}p - Codec: {f['vcodec']} - Audio Codec: {f['acodec']} - Size: {f.get('filesize')} bytes")
+                video_formats.append({'ext': f['ext'], 'resolution': f.get('height'), 'size': f.get('filesize')})
+        
+
+        unique_items = {}
+        for item in video_formats:
+            key = (item['ext'], item['resolution'])
+            if key not in unique_items or (item['size'] is not None):
+                unique_items[key] = item
+        
+        return {
+            "thumbnail_url": info_dict.get('thumbnail', 'No thumbnail found'),
+            "resolutions": list(unique_items.values()),
+            "duration": info_dict.get('duration')
+        }
